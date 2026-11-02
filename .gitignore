@@ -1,0 +1,26 @@
+# Segredos (RNF08)
+.env
+*.env
+!.env.example
+*.keytab
+*.pem
+*.key
+*.jks
+secrets/
+
+# Acervo real (grande/terceiros): nao versionar. Os PDFs sinteticos de demo sao liberados.
+data/raw/*
+!data/raw/.gitkeep
+*.pdf
+!docs/*.pdf
+!data/demo/*.pdf
+data/midia/
+*.jsonl
+
+# Python / editores
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.idea/
+.vscode/
