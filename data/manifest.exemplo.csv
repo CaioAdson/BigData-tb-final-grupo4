@@ -1,0 +1,5 @@
+# Copie para data/manifest.csv. Caminhos relativos a esta pasta (data/). Os PDFs NAO sao versionados.
+# qtd_fg = quantidade de questoes de Formacao Geral na prova (o resto e Componente Especifico).
+# CONFERIR no caderno de cada edicao: o numero varia entre anos.
+pdf_prova,pdf_gabarito,area,curso,ano,qtd_fg
+raw/2021_sistemas_prova.pdf,raw/2021_sistemas_gabarito.pdf,Computação,Sistemas de Informação,2021,8

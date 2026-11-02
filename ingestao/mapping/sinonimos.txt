@@ -1,0 +1,11 @@
+# Dicionario de sinonimos (RF13/RF14). Uma regra por linha, termos equivalentes separados por virgula.
+# Sem acentos nao e necessario: o filtro roda depois do asciifolding. Ajustar com base nas buscas reais.
+etica, moral, deontologia
+sustentabilidade, desenvolvimento sustentavel
+inclusao, acessibilidade, diversidade
+cidadania, direitos humanos
+meio ambiente, ecologia, ambiental
+desigualdade social, desigualdade, exclusao social
+informatica, computacao
+privacidade, lgpd
+saude publica, sus
