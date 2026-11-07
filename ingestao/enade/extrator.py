@@ -18,7 +18,9 @@ from .modelos import gerar_id, montar_texto_completo
 
 log = logging.getLogger("extrator")
 
-RE_CABECALHO = re.compile(r"^\s*QUEST[ÃA]O\s+(DISCURSIVA\s+)?(\d{1,2})\s*(\(.*\))?\s*$")
+RE_CABECALHO = re.compile(
+    r"^\s*QUEST[ÃƒA]O\s+(DISCURSIVA(?:\s+|$))?(\d{1,2})?\s*(\(.*\))?\s*$"
+)
 RE_FIM = re.compile(r"QUESTION[ÁA]RIO\s+DE\s+PERCEP[ÇC][ÃA]O", re.I)
 RE_ALT = re.compile(r"^\(?([A-E])(?:\)|\.|\s|$)\s*(.*)$")
 RE_COMANDO = re.compile(
@@ -68,23 +70,44 @@ def tabela_para_markdown(linhas_tabela) -> str:
 
 # ------------------------------------------------------------ segmentacao
 def segmentar(linhas: list[Linha]):
-    """Retorna lista de (numero, discursiva, ini, fim) com indices em 'linhas' (fim exclusivo)."""
+    """Retorna lista de (numero, discursiva, ini, fim)."""
     cabs, limite = [], len(linhas)
+
     for idx, l in enumerate(linhas):
-        if RE_FIM.search(l.texto):
+        if cabs and RE_FIM.search(l.texto):
             limite = idx
             break
+
         m = RE_CABECALHO.match(l.texto)
         if m:
-            cabs.append((idx, int(m.group(2)), bool(m.group(1))))
+            numero = int(m.group(2)) if m.group(2) else None
+            discursiva = bool(m.group(1))
+            cabs.append((idx, numero, discursiva))
+
+    maior_numero = max(
+        (num for _, num, _ in cabs if num is not None),
+        default=0
+    )
+
     blocos, vistos = [], set()
+
     for k, (idx, num, disc) in enumerate(cabs):
+        if num is None:
+            maior_numero += 1
+            num = maior_numero
+
         fim = cabs[k + 1][0] if k + 1 < len(cabs) else limite
+
         if num in vistos:
-            log.warning("questao %s duplicada no PDF; mantendo a primeira ocorrencia", num)
+            log.warning(
+                "questao %s duplicada no PDF; mantendo a primeira ocorrencia",
+                num
+            )
             continue
+
         vistos.add(num)
         blocos.append((num, disc, idx, fim))
+
     return blocos
 
 
@@ -135,14 +158,48 @@ def parse_bloco(textos: list[str], discursiva: bool) -> dict:
 
 
 # --------------------------------------------------------------- gabarito
+
 def ler_gabarito(caminho: Path) -> dict[int, str]:
-    """numero -> 'A'..'E' ou 'ANULADA'. Regex tolerante; conferir contra o PDF real."""
-    with pdfplumber.open(caminho) as pdf:
-        texto = "\n".join((p.extract_text() or "") for p in pdf.pages)
+    """Lê gabaritos em formato de linhas separadas ou número e resposta juntos."""
     gab = {}
-    for num, resp in RE_GAB.findall(texto):
-        r = "ANULADA" if resp.upper().startswith("ANULAD") else resp.upper()
-        gab.setdefault(int(num), r)
+
+    with pdfplumber.open(caminho) as pdf:
+        for pagina in pdf.pages:
+            texto = pagina.extract_text() or ""
+            linhas = [linha.strip() for linha in texto.splitlines()]
+
+            # Formato 1: número e resposta na mesma linha (01 C, 04 Anulada)
+            for linha in linhas:
+                m = re.match(
+                    r"^\s*(\d{1,2})\s+"
+                    r"(ANULAD[AO]|Anulad[ao]|[A-E])\s*$",
+                    linha,
+                    re.IGNORECASE
+                )
+                if m:
+                    num, resp = m.groups()
+                    gab.setdefault(
+                        int(num),
+                        "ANULADA" if resp.upper().startswith("ANULAD") else resp.upper()
+                    )
+
+            # Formato 2: números em uma linha e respostas na seguinte
+            for i in range(len(linhas) - 1):
+                numeros = linhas[i].split()
+                respostas = linhas[i + 1].split()
+
+                if (
+                    numeros
+                    and all(item.isdigit() for item in numeros)
+                    and len(numeros) == len(respostas)
+                    and all(resp.upper() in {"A", "B", "C", "D", "E", "*"} for resp in respostas)
+                ):
+                    for numero, resposta in zip(numeros, respostas):
+                        gab.setdefault(
+                            int(numero),
+                            "ANULADA" if resposta == "*" else resposta.upper()
+                        )
+
     return gab
 
 
@@ -201,7 +258,7 @@ def coletar_midia(pdf, linhas, blocos, pasta_midia: Path | None, prefixo: str):
 
 # ------------------------------------------------------------- orquestracao
 def extrair_prova(pdf_prova: Path, pdf_gabarito: Path | None, *, area: str, curso: str,
-                  ano: int, qtd_fg: int = 8, pasta_midia: Path | None = None) -> list[dict]:
+                  ano: int, qtd_fg: int = 27, pasta_midia: Path | None = None) -> list[dict]:
     gabarito = ler_gabarito(pdf_gabarito) if pdf_gabarito and Path(pdf_gabarito).exists() else {}
     docs = []
     with pdfplumber.open(pdf_prova) as pdf:
