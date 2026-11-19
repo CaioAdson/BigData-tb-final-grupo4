@@ -1,4 +1,4 @@
-# Semana 1: infraestrutura base (Kafka KRaft, Elasticsearch, Redis)
+﻿# Semana 1: infraestrutura base (Kafka KRaft, Elasticsearch, Redis)
 # Seguranca (Kerberos/LDAP) entra na semana 4; por ora tudo em PLAINTEXT, so localhost.
 
 name: enade-search
@@ -149,8 +149,29 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  api:
+    build: ./api
+    container_name: enade-api
+    ports:
+      - "8001:8000"
+    environment:
+      ES_URL: http://elasticsearch:9200
+      ES_INDEX: ${ES_INDEX:-enade-questoes}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CACHE_TTL: 300
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   kafka-data:
   es-data:
   redis-data:
   redisinsight-data:
+
+
+
