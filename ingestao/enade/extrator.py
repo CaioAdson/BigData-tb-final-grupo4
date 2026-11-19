@@ -1,4 +1,4 @@
-"""Extracao de provas e gabaritos do ENADE (PDF -> documentos por questao).
+﻿"""Extracao de provas e gabaritos do ENADE (PDF -> documentos por questao).
 
 Estrategia (heuristica, validar em amostra manual >= 50 questoes, RNF03):
   1. Le o PDF linha a linha com pdfplumber, guardando pagina e posicao vertical.
@@ -19,21 +19,51 @@ from .modelos import gerar_id, montar_texto_completo
 log = logging.getLogger("extrator")
 
 RE_CABECALHO = re.compile(
-    r"^\s*QUEST[ÃƒA]O\s+(DISCURSIVA(?:\s+|$))?(\d{1,2})?\s*(\(.*\))?\s*$"
+    r"^\s*QUEST[ÃƒÆ’A]O\s+(DISCURSIVA(?:\s+|$))?(\d{1,2})?\s*(\(.*\))?\s*$"
 )
-RE_FIM = re.compile(r"QUESTION[ÁA]RIO\s+DE\s+PERCEP[ÇC][ÃA]O", re.I)
+RE_FIM = re.compile(r"QUESTION[ÃA]RIO\s+DE\s+PERCEP[Ã‡C][ÃƒA]O", re.I)
 RE_ALT = re.compile(r"^\(?([A-E])(?:\)|\.|\s|$)\s*(.*)$")
 RE_COMANDO = re.compile(
-    r"^(Com base|Considerando|A partir|Assinale|Analise|Em rela[çc][ãa]o|Diante|De acordo|"
-    r"Nesse contexto|Nesse sentido|Tendo em vista|Sobre|Acerca|[ÉE] correto|Julgue|Avalie|"
+    r"^(Com base|Considerando|A partir|Assinale|Analise|Em rela[Ã§c][Ã£a]o|Diante|De acordo|"
+    r"Nesse contexto|Nesse sentido|Tendo em vista|Sobre|Acerca|[Ã‰E] correto|Julgue|Avalie|"
     r"Identifique|Qual|Quais|Como|Escreva|Elabore|Redija|Justifique|Explique|Apresente)\b"
 )
-RE_FIM_FRASE = re.compile(r"[.!?:;»”\"]\s*$")
+RE_INICIO_ENUNCIADO = re.compile(
+    r"(?:(?<=[.!?])|(?<=\d)|(?<=aluno))\s+(?P<inicio>"
+    r"Com base|"
+    r"Considere que durante uma aula|"
+    r"Qual Ã© a quantidade total de Ã¡gua presente no reservatÃ³rio|"
+    r"Como ele deve proceder|"
+    r"ApÃ³s a anÃ¡lise realizada pelos alunos|"
+    r"ApÃ³s fazer a avaliaÃ§Ã£o dos erros cometidos pelos alunos|"
+    r"Qual das seguintes atividades|"
+    r"Assim, em uma abordagem construtiva|"
+    r"Recordando as proposiÃ§Ãµes feitas|"
+    r"Nesse caso, a professora deve se fundamentar|"
+    r"A evoluÃ§Ã£o na aprendizagem da aluna|"
+    r"Considerando(?:-se)?|"
+    r"A\s*partir\s+(?:da|dos|do|de|das)\b|"
+    r"No que compete|"
+    r"Nessa situaÃ§Ã£o|"
+    r"Nessa perspectiva|"
+    r"Nesse contexto|"
+    r"Nesse sentido|"
+    r"Tendo em vista|"
+    r"Diante dessa situaÃ§Ã£o|"
+    r"Estaria em conformidade|"
+    r"A atividade proposta|"
+    r"Com a finalidade|"
+    r"Em conformidade com|"
+    r"Ao avaliar a resoluÃ§Ã£o apresentada pelo aluno"
+    r")\b",
+    re.IGNORECASE
+)
+RE_FIM_FRASE = re.compile(r"[.!?:;Â»â€\"]\s*$")
 RUIDO_PADRAO = [
-    re.compile(r"^\s*[ÁA]REA\s+LIVRE\s*$", re.I),
+    re.compile(r"^\s*[ÃA]REA\s+LIVRE\s*$", re.I),
     re.compile(r"^\s*\*[A-Z0-9]{6,}\*\s*$"),  # codigos de barra/versao no rodape
 ]
-RE_GAB = re.compile(r"\b(\d{1,2})\b\s*[-–:.)]?\s*(ANULAD[AO]|Anulad[ao]|[A-E])\b")
+RE_GAB = re.compile(r"\b(\d{1,2})\b\s*[-â€“:.)]?\s*(ANULAD[AO]|Anulad[ao]|[A-E])\b")
 
 
 @dataclass
@@ -112,43 +142,89 @@ def segmentar(linhas: list[Linha]):
 
 
 def parse_bloco(textos: list[str], discursiva: bool) -> dict:
-    """Separa texto_base / enunciado / alternativas de um bloco de linhas (sem o cabecalho)."""
+    """Separa texto-base, enunciado e alternativas de um bloco de linhas."""
     alternativas, corpo, incerta = [], list(textos), False
 
     if not discursiva:
-        cand = [(i, m.group(1)) for i, t in enumerate(textos) if (m := RE_ALT.match(t))]
-        seq = None
-        for pos in range(len(cand) - 1, -1, -1):  # ultimo 'A' com B..E depois dele
-            if cand[pos][1] != "A":
-                continue
-            achados, p = [cand[pos]], pos
-            for letra in "BCDE":
-                nxt = next((c for c in cand[p + 1:] if c[1] == letra), None)
-                if not nxt:
-                    break
-                achados.append(nxt)
-                p = cand.index(nxt)
-            if len(achados) == 5:
-                seq = achados
-                break
-        if seq:
-            corpo = textos[: seq[0][0]]
-            for n, (i, letra) in enumerate(seq):
-                fim = seq[n + 1][0] if n + 1 < len(seq) else len(textos)
-                primeira = RE_ALT.match(textos[i]).group(2).strip()
-                resto = [primeira, *textos[i + 1: fim]]
-                alternativas.append({"letra": letra, "texto": " ".join(x for x in resto if x).strip()})
+        texto = " ".join(textos).strip()
 
-    # enunciado = a partir do ultimo "comando" que inicia uma frase nova
-    corte = None
-    for j in range(len(corpo) - 1, -1, -1):
-        if RE_COMANDO.match(corpo[j]) and (j == 0 or RE_FIM_FRASE.search(corpo[j - 1])):
-            corte = j
-            break
-    if corte is None:
-        base, enun, incerta = [], corpo, True
+        # Localiza marcadores A, B, C, D ou E, inclusive
+        # quando estÃ£o colados ao enunciado na mesma linha.
+        marcador = re.compile(
+            r"(?<!\S)([A-E])\s+(?=[a-zA-Z0-9\u00C0-\u00FF])"
+        )
+
+        cand = list(marcador.finditer(texto))
+        seq = None
+
+        # Procura primeiro uma sequÃªncia completa A-E.
+        # Se nÃ£o encontrar, procura uma sequÃªncia A-D.
+        for quantidade in (5, 4):
+            letras = "ABCDE"[:quantidade]
+
+            for pos in range(len(cand) - 1, -1, -1):
+                if cand[pos].group(1) != "A":
+                    continue
+
+                achados = [cand[pos]]
+                p = pos
+
+                for letra in letras[1:]:
+                    nxt = next(
+                        (c for c in cand[p + 1:] if c.group(1) == letra),
+                        None
+                    )
+                    if nxt is None:
+                        break
+
+                    achados.append(nxt)
+                    p = cand.index(nxt)
+
+                if len(achados) == quantidade:
+                    seq = achados
+                    break
+
+            if seq:
+                break
+
+        if seq:
+            corpo = [texto[:seq[0].start()].strip()]
+
+            for n, m in enumerate(seq):
+                fim = seq[n + 1].start() if n + 1 < len(seq) else len(texto)
+                conteudo = texto[m.end():fim].strip()
+
+                # Remove o rodapÃ© do PDF quando ele fica anexado Ã  alternativa.
+                conteudo = re.sub(
+                    r"\s+MATEMÃTICA\s+\d{1,3}\s+RR\d+.*$",
+                    "",
+                    conteudo,
+                    flags=re.IGNORECASE
+                ).strip()
+
+                alternativas.append({
+                    "letra": m.group(1),
+                    "texto": conteudo
+                })
+
+
+    # Procura o inÃ­cio do enunciado dentro do texto completo.
+    texto_corpo = " ".join(corpo).strip()
+
+    candidato = RE_INICIO_ENUNCIADO.search(texto_corpo)
+
+    if candidato:
+        corte = candidato.start("inicio")
+
+        base = [texto_corpo[:corte].strip()]
+        enun = [texto_corpo[corte:].strip()]
+
+    elif RE_COMANDO.match(texto_corpo):
+        base, enun = [], [texto_corpo]
+
     else:
-        base, enun = corpo[:corte], corpo[corte:]
+        base, enun, incerta = [], [texto_corpo], True
+
     return {
         "texto_base": " ".join(base).strip(),
         "enunciado": " ".join(enun).strip(),
@@ -156,11 +232,10 @@ def parse_bloco(textos: list[str], discursiva: bool) -> dict:
         "segmentacao_incerta": incerta,
     }
 
-
 # --------------------------------------------------------------- gabarito
 
 def ler_gabarito(caminho: Path) -> dict[int, str]:
-    """Lê gabaritos em formato de linhas separadas ou número e resposta juntos."""
+    """LÃª gabaritos em formato de linhas separadas ou nÃºmero e resposta juntos."""
     gab = {}
 
     with pdfplumber.open(caminho) as pdf:
@@ -168,7 +243,7 @@ def ler_gabarito(caminho: Path) -> dict[int, str]:
             texto = pagina.extract_text() or ""
             linhas = [linha.strip() for linha in texto.splitlines()]
 
-            # Formato 1: número e resposta na mesma linha (01 C, 04 Anulada)
+            # Formato 1: nÃºmero e resposta na mesma linha (01 C, 04 Anulada)
             for linha in linhas:
                 m = re.match(
                     r"^\s*(\d{1,2})\s+"
@@ -183,7 +258,7 @@ def ler_gabarito(caminho: Path) -> dict[int, str]:
                         "ANULADA" if resp.upper().startswith("ANULAD") else resp.upper()
                     )
 
-            # Formato 2: números em uma linha e respostas na seguinte
+            # Formato 2: nÃºmeros em uma linha e respostas na seguinte
             for i in range(len(linhas) - 1):
                 numeros = linhas[i].split()
                 respostas = linhas[i + 1].split()
@@ -294,7 +369,7 @@ def extrair_prova(pdf_prova: Path, pdf_gabarito: Path | None, *, area: str, curs
         doc["texto_completo"] = montar_texto_completo(doc) or doc["texto_bruto"] or f"questao {num}"
         doc["qualidade"] = {
             "segmentacao_incerta": p["segmentacao_incerta"],
-            "alternativas_incompletas": (not disc) and len(p["alternativas"]) != 5,
+            "alternativas_incompletas": (not disc) and len(p["alternativas"]) not in (4, 5),
             "sem_gabarito": (not disc) and not anulada and resp is None,
         }
         docs.append(doc)
