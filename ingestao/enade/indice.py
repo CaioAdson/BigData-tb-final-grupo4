@@ -125,8 +125,8 @@ def main(argv=None):
     if a.mostrar:
         print(json.dumps(definicao(), ensure_ascii=False, indent=2))
         return 0
-    from elasticsearch import Elasticsearch
-    es = Elasticsearch(config.ES_URL)
+    from .seguranca import criar_es
+    es = criar_es()
     criado = garantir_indice(es, recriar=a.recriar)
     print("indice criado" if criado else "indice ja existia")
     return 0

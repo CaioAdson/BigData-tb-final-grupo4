@@ -26,7 +26,8 @@ flowchart LR
 | Idempotencia (RF10) | `_id` = `curso-ano-tipo-numero` (ex.: `sistemas-de-informacao-2021-ce-009`) | Reprocessar sobrescreve em vez de duplicar. | Teste: ingerir 2x, contar docs |
 | Consumidor (RF09) | Commit manual do offset apos o bulk no Elastic | At-least-once + idempotencia = efeito exatamente-uma-vez. | Teste de falha induzida |
 | Redis | 1 instancia, AOF ligado, senha | Cache de buscas (TTL) e carrinho por sessao; AOF evita perder carrinhos em reinicio. | Hit rate |
-| Seguranca | PLAINTEXT agora; Kerberos/LDAP na semana 4 | Evita depurar auth e pipeline ao mesmo tempo. | n/a |
+| Seguranca | Dev em PLAINTEXT; `docker-compose.kerberos.yml` liga Kerberos (Kafka SASL/GSSAPI, Elasticsearch SPNEGO) e a API usa LDAP para usuarios | Evita depurar auth e pipeline ao mesmo tempo; detalhes em docs/SEGURANCA.md | `scripts/teste_kerberos.sh` |
+| API | FastAPI, contrato em docs/API.md; cache com versao para invalidacao O(1); sessao/carrinho no Redis com TTL deslizante | Frontend nao conhece Elasticsearch/Redis | `api/tests` + `GET /api/cache/metricas` (hit rate) |
 
 ## Pendencias da semana 1 (equipe)
 - [ ] Preencher nomes e divisao de tarefas no README

@@ -1,0 +1,27 @@
+{
+  "id": "si-2021-fg-001",
+  "ano": 2021,
+  "area": "Computação",
+  "curso": "Sistemas de Informação",
+  "tipo_prova": "Formação Geral",
+  "tipo_questao": "objetiva",
+  "numero": 1,
+  "texto_base": "A ética profissional orienta condutas.",
+  "enunciado": "Sobre ética e cidadania, assinale a correta.",
+  "alternativas": [
+    {
+      "letra": "A",
+      "texto": "Moral é individual."
+    },
+    {
+      "letra": "B",
+      "texto": "Ética é coletiva."
+    }
+  ],
+  "gabarito": null,
+  "anulada": false,
+  "competencias": [
+    "Ética"
+  ],
+  "objetos_conhecimento": []
+}

@@ -1,0 +1,101 @@
+{
+  "total_questoes": 5,
+  "por_area": [
+    {
+      "nome": "Computação",
+      "quantidade": 4
+    },
+    {
+      "nome": "Saúde",
+      "quantidade": 1
+    }
+  ],
+  "por_ano": [
+    {
+      "nome": "2021",
+      "quantidade": 2
+    },
+    {
+      "nome": "2022",
+      "quantidade": 1
+    },
+    {
+      "nome": "2023",
+      "quantidade": 2
+    }
+  ],
+  "por_tipo_questao": [
+    {
+      "nome": "objetiva",
+      "quantidade": 4
+    },
+    {
+      "nome": "discursiva",
+      "quantidade": 1
+    }
+  ],
+  "por_tipo_prova": [
+    {
+      "nome": "Componente Específico",
+      "quantidade": 3
+    },
+    {
+      "nome": "Formação Geral",
+      "quantidade": 2
+    }
+  ],
+  "por_curso": [
+    {
+      "nome": "Sistemas de Informação",
+      "quantidade": 3
+    },
+    {
+      "nome": "Ciência da Computação",
+      "quantidade": 1
+    },
+    {
+      "nome": "Enfermagem",
+      "quantidade": 1
+    }
+  ],
+  "competencias_por_ano": [
+    {
+      "competencia": "Algoritmos",
+      "total": 2,
+      "por_ano": [
+        {
+          "ano": 2021,
+          "quantidade": 1
+        },
+        {
+          "ano": 2023,
+          "quantidade": 1
+        }
+      ]
+    },
+    {
+      "competencia": "Raciocínio lógico",
+      "total": 2,
+      "por_ano": [
+        {
+          "ano": 2021,
+          "quantidade": 1
+        },
+        {
+          "ano": 2023,
+          "quantidade": 1
+        }
+      ]
+    },
+    {
+      "competencia": "Ética",
+      "total": 1,
+      "por_ano": [
+        {
+          "ano": 2021,
+          "quantidade": 1
+        }
+      ]
+    }
+  ]
+}

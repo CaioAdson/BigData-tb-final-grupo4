@@ -1,0 +1,11 @@
+{
+  "id": "aluno.bruno",
+  "nome": "Bruno Estudante",
+  "perfil": "estudante",
+  "permissoes": [
+    "pesquisar",
+    "filtrar",
+    "carrinho",
+    "exportar_sem_gabarito"
+  ]
+}

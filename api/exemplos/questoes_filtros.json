@@ -1,0 +1,116 @@
+{
+  "total_questoes": 5,
+  "filtros": [
+    {
+      "parametro": "q",
+      "tipo": "string",
+      "descricao": "Pesquisa textual (enunciado, texto-base, alternativas) com stemming PT-BR.",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 0,
+      "disponivel": false,
+      "valores": []
+    },
+    {
+      "parametro": "area",
+      "tipo": "string",
+      "descricao": "Filtra pela área exata (ex.: Computação).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": [
+        "Computação",
+        "Saúde"
+      ]
+    },
+    {
+      "parametro": "curso",
+      "tipo": "string",
+      "descricao": "Filtra pelo curso exato (ex.: Sistemas de Informação).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": [
+        "Ciência da Computação",
+        "Enfermagem",
+        "Sistemas de Informação"
+      ]
+    },
+    {
+      "parametro": "ano",
+      "tipo": "integer",
+      "descricao": "Filtra pelo ano da prova (2004-2100).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": [
+        "2021",
+        "2022",
+        "2023"
+      ]
+    },
+    {
+      "parametro": "tipo_prova",
+      "tipo": "string",
+      "descricao": "'Formação Geral' ou 'Componente Específico' (aceita FG/CE).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": [
+        "Componente Específico",
+        "Formação Geral"
+      ]
+    },
+    {
+      "parametro": "tipo_questao",
+      "tipo": "string",
+      "descricao": "'objetiva' ou 'discursiva'.",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": [
+        "discursiva",
+        "objetiva"
+      ]
+    },
+    {
+      "parametro": "competencia",
+      "tipo": "string",
+      "descricao": "Filtra por competência. Depende do enriquecimento do índice.",
+      "implementado": true,
+      "depende_de_dados": true,
+      "documentos_com_dado": 4,
+      "disponivel": true,
+      "valores": [
+        "Algoritmos",
+        "Raciocínio lógico",
+        "Ética"
+      ]
+    },
+    {
+      "parametro": "pagina",
+      "tipo": "integer",
+      "descricao": "Página solicitada (>= 1).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": []
+    },
+    {
+      "parametro": "tamanho",
+      "tipo": "integer",
+      "descricao": "Questões por página (1-100).",
+      "implementado": true,
+      "depende_de_dados": false,
+      "documentos_com_dado": 5,
+      "disponivel": true,
+      "valores": []
+    }
+  ]
+}
