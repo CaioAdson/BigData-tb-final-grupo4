@@ -1,200 +1,131 @@
-﻿import hashlib
-import json
-import os
-from fastapi.middleware.cors import CORSMiddleware
+﻿"""ENADE Search API.
+
+Camada unica que o frontend consome: esconde Elasticsearch, Redis, LDAP e Kerberos.
+Documentacao interativa: /docs (Swagger) e /redoc.
+"""
+import logging
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
 from elasticsearch import AsyncElasticsearch
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-ES_URL = os.getenv("ES_URL", "http://localhost:9200")
-ES_INDEX = os.getenv("ES_INDEX", "enade-questoes")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
+from . import config as configuracao
+from .dependencias import Estado, obter_estado
+from .erros import registrar_handlers
+from .rotas import auth, cache, carrinho, questoes
+from .seguranca.kerberos import ProvedorTokenKerberos
+from .seguranca.ldap import AutenticadorLDAP
+from .seguranca.sessoes import GerenciadorSessoes
+from .servicos.cache import CacheConsultas
+from .servicos.carrinho import Carrinho
 
-es = None
-cache = None
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("enade.api")
 
+VERSAO = "2.0.0"
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global es, cache
-    es = AsyncElasticsearch(ES_URL)
-    cache = redis.from_url(REDIS_URL, password=os.getenv("REDIS_PASSWORD"), decode_responses=True)
-    yield
-    await es.close()
-    await cache.aclose()
+DESCRICAO = """
+API de pesquisa de questões do ENADE. O frontend consome **apenas** esta API
+(nunca o Elasticsearch, o Redis, o Kafka ou o LDAP diretamente).
 
+### Autenticação
+1. `POST /api/auth/login` com `{"usuario": "...", "senha": "..."}` (validado no LDAP).
+2. Envie o `access_token` recebido em `Authorization: Bearer <token>` (botão **Authorize**).
+3. A sessão expira após `SESSAO_TTL` segundos sem uso.
 
-app = FastAPI(
-    title="ENADE Search API",
-    description="API de busca de questões do ENADE",
-    version="1.0.0",
-    lifespan=lifespan,
-)
+| Perfil | Pode |
+|---|---|
+| anônimo | pesquisar, filtrar, ver estatísticas (sem gabarito) |
+| `estudante` | o mesmo + carrinho e exportação **sem** gabarito |
+| `professor` | tudo: gabaritos, painel analítico, exportação com gabarito, métricas/invalidação do cache |
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+Estudante acessando recurso de professor recebe **403** (`ACESSO_NEGADO`).
 
-async def consultar_cache(chave: str):
-    try:
-        valor = await cache.get(chave)
-        return json.loads(valor) if valor else None
-    except Exception:
-        return None
+### Erros
+Todos os erros seguem `{"erro": {"codigo": "...", "mensagem": "..."}}`
+(400 parâmetros inválidos, 401 não autenticado, 403 sem permissão, 404 não encontrado,
+409 conflito, 429 bloqueio de login, 500 erro interno, 503 serviço indisponível).
+"""
 
-
-async def salvar_cache(chave: str, dados: dict):
-    try:
-        await cache.setex(chave, CACHE_TTL, json.dumps(dados, ensure_ascii=False))
-    except Exception:
-        pass
+TAGS = [
+    {"name": "Status", "description": "Verificação de funcionamento."},
+    {"name": "Autenticação", "description": "Login LDAP e sessão (Redis)."},
+    {"name": "Questões e estatísticas", "description": "Pesquisa, filtros, detalhes, estatísticas e painel."},
+    {"name": "Carrinho e exportação", "description": "Lista de questões da sessão e exportação de simulados."},
+    {"name": "Cache", "description": "Métricas e invalidação do cache Redis (professor)."},
+]
 
 
-def gerar_chave_cache(parametros: dict) -> str:
-    conteudo = json.dumps(parametros, sort_keys=True, ensure_ascii=False)
-    return "enade:api:" + hashlib.sha256(conteudo.encode()).hexdigest()
-
-
-@app.get("/")
-async def raiz():
-    return {"projeto": "ENADE Search", "status": "online"}
-
-
-@app.get("/api/health")
-async def health():
-    resultado = {"api": "online"}
-    try:
-        await es.ping()
-        resultado["elasticsearch"] = "online"
-    except Exception:
-        resultado["elasticsearch"] = "offline"
-
-    try:
-        await cache.ping()
-        resultado["redis"] = "online"
-    except Exception:
-        resultado["redis"] = "offline"
-
-    return resultado
-
-
-@app.get("/api/questoes")
-async def buscar_questoes(
-    q: str | None = Query(default=None, description="Texto para pesquisa"),
-    area: str | None = None,
-    ano: int | None = None,
-    tipo_prova: str | None = None,
-    tipo_questao: str | None = None,
-    pagina: int = Query(default=1, ge=1),
-    tamanho: int = Query(default=10, ge=1, le=100),
-):
-    parametros = {
-        "q": q, "area": area, "ano": ano,
-        "tipo_prova": tipo_prova, "tipo_questao": tipo_questao,
-        "pagina": pagina, "tamanho": tamanho,
-    }
-    chave = gerar_chave_cache(parametros)
-    armazenado = await consultar_cache(chave)
-    if armazenado is not None:
-        armazenado["cache"] = "hit"
-        return armazenado
-
-    filtros = []
-    if area:
-        filtros.append({"term": {"area": area}})
-    if ano is not None:
-        filtros.append({"term": {"ano": ano}})
-    if tipo_prova:
-        filtros.append({"term": {"tipo_prova": tipo_prova}})
-    if tipo_questao:
-        filtros.append({"term": {"tipo_questao": tipo_questao}})
-
-    consulta = {"bool": {"filter": filtros}}
-    if q:
-        consulta["bool"]["must"] = [
-            {
-                "multi_match": {
-                    "query": q,
-                    "fields": ["texto_bruto", "enunciado", "alternativas.texto"],
-                    "type": "best_fields",
-                }
-            }
-        ]
+async def criar_estado(cfg: configuracao.Config) -> Estado:
+    kerberos = None
+    if cfg.es_auth == "kerberos":
+        kerberos = ProvedorTokenKerberos(cfg.es_url, cfg.es_kerberos_servico,
+                                         cfg.es_kerberos_principal, cfg.es_kerberos_keytab)
+        token = await kerberos.obter_token()  # falha aqui = API nao sobe sem autenticacao mutua
+        es = AsyncElasticsearch(cfg.es_url, api_key=token, request_timeout=cfg.es_timeout)
     else:
-        consulta["bool"]["must"] = [{"match_all": {}}]
-
-    try:
-        resposta = await es.search(
-            index=ES_INDEX,
-            query=consulta,
-            from_=(pagina - 1) * tamanho,
-            size=tamanho,
-        )
-    except Exception as erro:
-        raise HTTPException(status_code=503, detail="Falha ao consultar Elasticsearch") from erro
-
-    resultado = {
-        "total": resposta["hits"]["total"]["value"],
-        "pagina": pagina,
-        "tamanho": tamanho,
-        "questoes": [
-            {"id": item["_id"], **item["_source"]}
-            for item in resposta["hits"]["hits"]
-        ],
-        "cache": "miss",
-    }
-    await salvar_cache(chave, resultado)
-    return resultado
+        es = AsyncElasticsearch(cfg.es_url, request_timeout=cfg.es_timeout)
+    cliente_redis = redis.from_url(cfg.redis_url, password=cfg.redis_password, decode_responses=True)
+    return Estado(
+        cfg=cfg, es=es, redis=cliente_redis,
+        cache=CacheConsultas(cliente_redis, cfg.cache_ttl),
+        sessoes=GerenciadorSessoes(cliente_redis, cfg.sessao_ttl),
+        carrinho=Carrinho(cliente_redis, cfg.sessao_ttl, cfg.carrinho_max),
+        autenticador=AutenticadorLDAP(cfg),
+        kerberos=kerberos,
+    )
 
 
-@app.get("/api/estatisticas")
-async def estatisticas():
-    parametros = {"endpoint": "estatisticas"}
-    chave = gerar_chave_cache(parametros)
-    armazenado = await consultar_cache(chave)
-    if armazenado is not None:
-        armazenado["cache"] = "hit"
-        return armazenado
+def criar_app(estado: Estado | None = None, cfg: configuracao.Config | None = None) -> FastAPI:
+    """`estado` permite injetar dependencias falsas nos testes."""
+    cfg = cfg or (estado.cfg if estado else configuracao.carregar())
 
-    agregacoes = {
-        "por_area": {"terms": {"field": "area", "size": 50}},
-        "por_ano": {"terms": {"field": "ano", "size": 20}},
-        "por_tipo_questao": {"terms": {"field": "tipo_questao", "size": 10}},
-        "por_tipo_prova": {"terms": {"field": "tipo_prova", "size": 10}},
-    }
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.enade = estado or await criar_estado(cfg)
+        yield
+        if estado is None:
+            await app.state.enade.es.close()
+            await app.state.enade.redis.aclose()
 
-    try:
-        resposta = await es.search(
-            index=ES_INDEX,
-            size=0,
-            aggs=agregacoes,
-        )
-    except Exception as erro:
-        raise HTTPException(status_code=503, detail="Falha ao consultar Elasticsearch") from erro
+    app = FastAPI(title="ENADE Search API", description=DESCRICAO, version=VERSAO,
+                  openapi_tags=TAGS, lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cfg.cors_origens,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Cache", "Content-Disposition"],
+    )
+    registrar_handlers(app)
 
-    resultado = {
-        "total_questoes": resposta["hits"]["total"]["value"],
-        "agregacoes": {
-            nome: [
-                {"valor": item["key"], "quantidade": item["doc_count"]}
-                for item in resposta["aggregations"][nome]["buckets"]
-            ]
-            for nome in agregacoes
-        },
-        "cache": "miss",
-    }
-    await salvar_cache(chave, resultado)
-    return resultado
+    @app.get("/", tags=["Status"], summary="API online")
+    async def raiz():
+        return {"projeto": "ENADE Search", "status": "online", "versao": VERSAO, "documentacao": "/docs"}
 
+    @app.get("/api/health", tags=["Status"], summary="Saúde da API e dependências",
+             description="Status de API, Elasticsearch e Redis (`online`/`offline`) e modo de autenticação "
+                         "com o Elasticsearch. Sempre 200; consulte os campos.")
+    async def health(est: Estado = Depends(obter_estado)):
+        resultado = {"api": "online"}
+        try:
+            resultado["elasticsearch"] = "online" if await est.es.ping() else "offline"
+        except Exception:
+            resultado["elasticsearch"] = "offline"
+        try:
+            await est.redis.ping()
+            resultado["redis"] = "online"
+        except Exception:
+            resultado["redis"] = "offline"
+        resultado["autenticacao_elasticsearch"] = est.cfg.es_auth
+        return resultado
+
+    for r in (auth.router, questoes.router, carrinho.router, cache.router):
+        app.include_router(r)
+    return app
+
+
+app = criar_app()

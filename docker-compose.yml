@@ -1,5 +1,7 @@
-﻿# Semana 1: infraestrutura base (Kafka KRaft, Elasticsearch, Redis)
-# Seguranca (Kerberos/LDAP) entra na semana 4; por ora tudo em PLAINTEXT, so localhost.
+# Infraestrutura base (Kafka KRaft, Elasticsearch, Redis, OpenLDAP) + API.
+# Modo desenvolvimento: Kafka/Elasticsearch em PLAINTEXT, so localhost.
+# Seguranca completa (Kerberos SASL/GSSAPI no Kafka + SPNEGO no Elasticsearch):
+#   docker compose -f docker-compose.yml -f docker-compose.kerberos.yml up -d   (ver docs/SEGURANCA.md)
 
 name: enade-search
 
@@ -149,6 +151,45 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # ---- Autenticacao de usuarios (LDAP). Perfis = grupos cn=professores / cn=estudantes.
+  ldap:
+    image: osixia/openldap:1.5.0
+    container_name: enade-ldap
+    hostname: ldap
+    ports:
+      - "389:389"
+    environment:
+      LDAP_ORGANISATION: ENADE Search
+      LDAP_DOMAIN: enade.local
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD}
+      LDAP_READONLY_USER: "true"          # conta de servico somente leitura usada pela API
+      LDAP_READONLY_USER_USERNAME: leitura
+      LDAP_READONLY_USER_PASSWORD: ${LDAP_BIND_PASSWORD}
+      LDAP_TLS: "false"                   # laboratorio; em producao use LDAPS/StartTLS
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b dc=enade,dc=local -D cn=admin,dc=enade,dc=local -w \"$$LDAP_ADMIN_PASSWORD\" -s base > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ldap-init:
+    image: osixia/openldap:1.5.0
+    container_name: enade-ldap-init
+    restart: "no"
+    entrypoint: ["bash", "/seed/seed.sh"]
+    environment:
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD}
+      LDAP_SENHA_PROFESSOR_DEMO: ${LDAP_SENHA_PROFESSOR_DEMO}
+      LDAP_SENHA_ESTUDANTE_DEMO: ${LDAP_SENHA_ESTUDANTE_DEMO}
+    volumes:
+      - ./infra/ldap:/seed:ro
+    depends_on:
+      ldap:
+        condition: service_healthy
+
   api:
     build: ./api
     container_name: enade-api
@@ -159,11 +200,19 @@ services:
       ES_INDEX: ${ES_INDEX:-enade-questoes}
       REDIS_URL: redis://redis:6379/0
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      CACHE_TTL: 300
+      CACHE_TTL: ${CACHE_TTL:-300}
+      SESSAO_TTL: ${SESSAO_TTL:-3600}
+      CARRINHO_MAX: ${CARRINHO_MAX:-100}
+      LDAP_URL: ldap://ldap:389
+      LDAP_BIND_DN: cn=leitura,dc=enade,dc=local
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD}
+      CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
     depends_on:
       elasticsearch:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ldap:
         condition: service_healthy
     restart: unless-stopped
 
@@ -172,6 +221,8 @@ volumes:
   es-data:
   redis-data:
   redisinsight-data:
+  ldap-data:
+  ldap-config:
 
 
 

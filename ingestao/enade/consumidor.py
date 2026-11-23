@@ -20,6 +20,7 @@ from elasticsearch import ApiError, TransportError
 
 from . import config
 from .indice import garantir_indice
+from .seguranca import criar_es
 from .modelos import validar_documento
 
 log = logging.getLogger("consumidor")
@@ -33,10 +34,10 @@ def _parar(*_):
 
 
 def conectar_es() -> Elasticsearch:
-    es = Elasticsearch(config.ES_URL, request_timeout=30)
     espera = 1
     while _rodando:
         try:
+            es = criar_es(request_timeout=30)
             es.info()
             return es
         except Exception as e:
@@ -126,8 +127,10 @@ def main():
         "group.id": config.GRUPO_CONSUMIDOR,
         "enable.auto.commit": False,
         "auto.offset.reset": "earliest",
+        **config.kafka_seguranca(),
     })
-    dlq = Producer({"bootstrap.servers": config.KAFKA_BOOTSTRAP, "acks": "all", "enable.idempotence": True})
+    dlq = Producer({"bootstrap.servers": config.KAFKA_BOOTSTRAP, "acks": "all", "enable.idempotence": True,
+                    **config.kafka_seguranca()})
     consumer.subscribe([config.TOPICO_QUESTOES])
     log.info("consumindo '%s' (grupo %s) -> indice '%s'", config.TOPICO_QUESTOES, config.GRUPO_CONSUMIDOR, config.ES_INDICE)
     total, t0, ultimo_log = 0, time.time(), time.time()

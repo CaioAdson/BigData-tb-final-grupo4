@@ -1,0 +1,135 @@
+# Camada de seguranca Kerberos (sobrepoe docker-compose.yml):
+#   docker compose -f docker-compose.yml -f docker-compose.kerberos.yml up -d --build
+#
+#  - kdc: KDC MIT (realm ENADE.LOCAL); exporta keytabs para ./secrets/keytabs (ignorado pelo Git)
+#  - Kafka: listeners SASL_PLAINTEXT com mecanismo GSSAPI (broker = kafka/kafka@ENADE.LOCAL)
+#  - Elasticsearch: seguranca ligada + realm Kerberos (servico HTTP/elasticsearch@ENADE.LOCAL)
+#  - API e pipeline: autenticacao mutua via keytab (api@, consumidor@, produtor@ENADE.LOCAL)
+# Detalhes e teste ponta a ponta: docs/SEGURANCA.md e scripts/teste_kerberos.sh
+
+x-krb5: &krb5
+  - ./infra/kerberos/krb5.conf:/etc/krb5.conf:ro
+  - ./secrets/keytabs:/keytabs:ro
+
+services:
+  kdc:
+    build: ./infra/kerberos
+    container_name: enade-kdc
+    hostname: kdc
+    environment:
+      KRB5_MASTER_PASSWORD: ${KRB5_MASTER_PASSWORD}
+    volumes:
+      - ./secrets/keytabs:/keytabs
+      - kdc-data:/var/lib/krb5kdc
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /keytabs/.pronto"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  kafka:
+    environment:
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: GSSAPI
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: GSSAPI
+      KAFKA_SASL_KERBEROS_SERVICE_NAME: kafka
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka-kerberos/kafka_jaas.conf -Djava.security.krb5.conf=/etc/krb5.conf
+    volumes:
+      - ./infra/kerberos/krb5.conf:/etc/krb5.conf:ro
+      - ./secrets/keytabs:/keytabs:ro
+      - ./infra/kerberos:/etc/kafka-kerberos:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 --command-config /etc/kafka-kerberos/kafka-cliente.properties > /dev/null 2>&1"]
+    depends_on:
+      kdc:
+        condition: service_healthy
+
+  kafka-init:
+    environment:
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka-kerberos/kafka_jaas.conf -Djava.security.krb5.conf=/etc/krb5.conf
+    volumes:
+      - ./infra/kerberos/krb5.conf:/etc/krb5.conf:ro
+      - ./secrets/keytabs:/keytabs:ro
+      - ./infra/kerberos:/etc/kafka-kerberos:ro
+    command:
+      - |
+        set -e
+        B=kafka:9092
+        C="--command-config /etc/kafka-kerberos/kafka-cliente.properties"
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$B $$C --create --if-not-exists \
+          --topic ${KAFKA_TOPIC_QUESTOES} --partitions ${KAFKA_PARTITIONS_QUESTOES} --replication-factor 1 --config retention.ms=-1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$B $$C --create --if-not-exists \
+          --topic ${KAFKA_TOPIC_DLQ} --partitions ${KAFKA_PARTITIONS_DLQ} --replication-factor 1 --config retention.ms=-1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$B $$C --list
+
+  elasticsearch:
+    environment:
+      xpack.security.enabled: "true"
+      xpack.license.self_generated.type: trial          # realm Kerberos exige licenca platinum/trial
+      xpack.security.authc.realms.kerberos.kerb1.order: "0"
+      xpack.security.authc.realms.kerberos.kerb1.keytab.path: keytabs/HTTP.keytab
+      xpack.security.authc.realms.kerberos.kerb1.remove_realm_name: "false"
+      xpack.security.authc.realms.native.native1.order: "1"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS} -Djava.security.krb5.conf=/usr/share/elasticsearch/config/krb5.conf
+    volumes:
+      - ./infra/kerberos/krb5.conf:/usr/share/elasticsearch/config/krb5.conf:ro
+      - ./secrets/keytabs:/usr/share/elasticsearch/config/keytabs:ro   # diretorio (arquivo unico viraria pasta antes do KDC gerar)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:$$ELASTIC_PASSWORD http://localhost:9200/_cluster/health | grep -Eq '\"status\":\"(green|yellow)\"'"]
+    depends_on:
+      kdc:
+        condition: service_healthy
+
+  es-init:
+    image: curlimages/curl:8.10.1
+    container_name: enade-es-init
+    restart: "no"
+    entrypoint: ["sh", "/init/es-init.sh"]
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    volumes:
+      - ./infra/kerberos:/init:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    profiles: ["sem-kerberos"]   # Kibana fica fora do modo seguro (exigiria usuario kibana_system)
+
+  consumidor:
+    environment:
+      KAFKA_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_KERBEROS_PRINCIPAL: consumidor@ENADE.LOCAL
+      KAFKA_KERBEROS_KEYTAB: /keytabs/consumidor.keytab
+      ES_AUTH: kerberos
+      ES_KERBEROS_PRINCIPAL: consumidor@ENADE.LOCAL
+      ES_KERBEROS_KEYTAB: /keytabs/consumidor.keytab
+    volumes: *krb5
+    depends_on:
+      es-init:
+        condition: service_completed_successfully
+
+  produtor:
+    environment:
+      KAFKA_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_KERBEROS_PRINCIPAL: produtor@ENADE.LOCAL
+      KAFKA_KERBEROS_KEYTAB: /keytabs/produtor.keytab
+    volumes:
+      - ./data:/data:ro
+      - ./infra/kerberos/krb5.conf:/etc/krb5.conf:ro
+      - ./secrets/keytabs:/keytabs:ro
+
+  api:
+    environment:
+      ES_AUTH: kerberos
+      ES_KERBEROS_SERVICO: HTTP@elasticsearch
+      ES_KERBEROS_PRINCIPAL: api@ENADE.LOCAL
+      ES_KERBEROS_KEYTAB: /keytabs/api.keytab
+    volumes: *krb5
+    depends_on:
+      es-init:
+        condition: service_completed_successfully
+
+volumes:
+  kdc-data:

@@ -1,0 +1,19 @@
+{
+  "access_token": "token_exemplo",
+  "token_type": "bearer",
+  "expira_em": 3600,
+  "usuario": {
+    "id": "prof.ana",
+    "nome": "Ana Professora",
+    "perfil": "professor",
+    "permissoes": [
+      "pesquisar",
+      "filtrar",
+      "carrinho",
+      "ver_gabarito",
+      "painel_analitico",
+      "exportar_simulado",
+      "gerenciar_cache"
+    ]
+  }
+}

@@ -88,6 +88,7 @@ def main(argv=None):
         "enable.idempotence": True,    # sem duplicatas por retry do produtor
         "compression.type": "lz4",
         "linger.ms": 20,
+        **config.kafka_seguranca(),  # SASL/GSSAPI quando KAFKA_SECURITY_PROTOCOL=SASL_PLAINTEXT
     })
     for d in extrair_manifesto(args.manifest, args.midia):
         while True:

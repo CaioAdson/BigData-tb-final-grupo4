@@ -1,0 +1,27 @@
+{
+  "hits": 1,
+  "misses": 5,
+  "erros": 0,
+  "total_consultas": 6,
+  "hit_rate": 0.1667,
+  "chaves_ativas": 5,
+  "ttl_segundos": 300,
+  "versao": 0,
+  "por_endpoint": {
+    "questoes": {
+      "hits": 0,
+      "misses": 3,
+      "erros": 0
+    },
+    "filtros": {
+      "hits": 0,
+      "misses": 1,
+      "erros": 0
+    },
+    "estatisticas": {
+      "hits": 1,
+      "misses": 1,
+      "erros": 0
+    }
+  }
+}

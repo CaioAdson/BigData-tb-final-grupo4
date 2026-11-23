@@ -1,0 +1,16 @@
+{
+  "access_token": "token_exemplo",
+  "token_type": "bearer",
+  "expira_em": 3600,
+  "usuario": {
+    "id": "aluno.bruno",
+    "nome": "Bruno Estudante",
+    "perfil": "estudante",
+    "permissoes": [
+      "pesquisar",
+      "filtrar",
+      "carrinho",
+      "exportar_sem_gabarito"
+    ]
+  }
+}
