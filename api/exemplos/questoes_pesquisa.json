@@ -1,0 +1,98 @@
+{
+  "total": 3,
+  "pagina": 1,
+  "tamanho": 10,
+  "total_paginas": 1,
+  "questoes": [
+    {
+      "id": "cc-2023-ce-011",
+      "ano": 2023,
+      "area": "Computação",
+      "curso": "Ciência da Computação",
+      "tipo_prova": "Componente Específico",
+      "tipo_questao": "discursiva",
+      "numero": 11,
+      "texto_base": null,
+      "enunciado": "Descreva a complexidade de algoritmos de busca em grafos.",
+      "alternativas": [],
+      "gabarito": null,
+      "anulada": false,
+      "competencias": [
+        "Raciocínio lógico"
+      ],
+      "objetos_conhecimento": [],
+      "destaques": {
+        "enunciado": [
+          "Descreva a complexidade de <mark>algoritmos</mark> de busca em grafos."
+        ]
+      }
+    },
+    {
+      "id": "si-2023-ce-010",
+      "ano": 2023,
+      "area": "Computação",
+      "curso": "Sistemas de Informação",
+      "tipo_prova": "Componente Específico",
+      "tipo_questao": "objetiva",
+      "numero": 10,
+      "texto_base": null,
+      "enunciado": "Um algoritmo guloso resolve o problema da mochila fracionária?",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Sim."
+        },
+        {
+          "letra": "B",
+          "texto": "Não."
+        }
+      ],
+      "gabarito": null,
+      "anulada": true,
+      "competencias": [
+        "Algoritmos"
+      ],
+      "objetos_conhecimento": [],
+      "destaques": {
+        "enunciado": [
+          "Um <mark>algoritmo</mark> guloso resolve o problema da mochila fracionária?"
+        ]
+      }
+    },
+    {
+      "id": "si-2021-ce-009",
+      "ano": 2021,
+      "area": "Computação",
+      "curso": "Sistemas de Informação",
+      "tipo_prova": "Componente Específico",
+      "tipo_questao": "objetiva",
+      "numero": 9,
+      "texto_base": null,
+      "enunciado": "Analise os algoritmos de ordenação a seguir.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Quicksort é estável."
+        },
+        {
+          "letra": "B",
+          "texto": "Mergesort é O(n log n)."
+        }
+      ],
+      "gabarito": null,
+      "anulada": false,
+      "competencias": [
+        "Raciocínio lógico",
+        "Algoritmos"
+      ],
+      "objetos_conhecimento": [
+        "Ordenação"
+      ],
+      "destaques": {
+        "enunciado": [
+          "Analise os <mark>algoritmos</mark> de ordenação a seguir."
+        ]
+      }
+    }
+  ]
+}

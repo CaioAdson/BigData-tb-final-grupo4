@@ -1,0 +1,86 @@
+{
+  "titulo": "Simulado ENADE",
+  "gerado_em": "2026-11-23T12:00:00+00:00",
+  "gerado_por": {
+    "id": "prof.ana",
+    "nome": "Ana Professora",
+    "perfil": "professor"
+  },
+  "inclui_gabarito": true,
+  "total_questoes": 2,
+  "questoes": [
+    {
+      "ordem": 1,
+      "id": "si-2021-fg-001",
+      "ano": 2021,
+      "area": "Computação",
+      "curso": "Sistemas de Informação",
+      "tipo_prova": "Formação Geral",
+      "tipo_questao": "objetiva",
+      "numero": 1,
+      "texto_base": "A ética profissional orienta condutas.",
+      "enunciado": "Sobre ética e cidadania, assinale a correta.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Moral é individual."
+        },
+        {
+          "letra": "B",
+          "texto": "Ética é coletiva."
+        }
+      ],
+      "gabarito": "B",
+      "anulada": false,
+      "competencias": [
+        "Ética"
+      ],
+      "objetos_conhecimento": []
+    },
+    {
+      "ordem": 2,
+      "id": "si-2021-ce-009",
+      "ano": 2021,
+      "area": "Computação",
+      "curso": "Sistemas de Informação",
+      "tipo_prova": "Componente Específico",
+      "tipo_questao": "objetiva",
+      "numero": 9,
+      "texto_base": null,
+      "enunciado": "Analise os algoritmos de ordenação a seguir.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Quicksort é estável."
+        },
+        {
+          "letra": "B",
+          "texto": "Mergesort é O(n log n)."
+        }
+      ],
+      "gabarito": "B",
+      "anulada": false,
+      "competencias": [
+        "Raciocínio lógico",
+        "Algoritmos"
+      ],
+      "objetos_conhecimento": [
+        "Ordenação"
+      ]
+    }
+  ],
+  "gabarito": [
+    {
+      "ordem": 1,
+      "id": "si-2021-fg-001",
+      "gabarito": "B",
+      "anulada": false
+    },
+    {
+      "ordem": 2,
+      "id": "si-2021-ce-009",
+      "gabarito": "B",
+      "anulada": false
+    }
+  ]
+}

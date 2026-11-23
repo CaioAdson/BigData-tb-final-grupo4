@@ -1,0 +1,44 @@
+{
+  "400_parametros_invalidos": {
+    "erro": {
+      "codigo": "PARAMETROS_INVALIDOS",
+      "mensagem": "Um ou mais parametros sao invalidos.",
+      "detalhes": [
+        {
+          "campo": "tamanho",
+          "mensagem": "Input should be less than or equal to 100"
+        }
+      ]
+    }
+  },
+  "401_nao_autenticado": {
+    "erro": {
+      "codigo": "NAO_AUTENTICADO",
+      "mensagem": "Autenticacao necessaria. Envie o header 'Authorization: Bearer <token>'."
+    }
+  },
+  "401_credenciais_invalidas": {
+    "erro": {
+      "codigo": "CREDENCIAIS_INVALIDAS",
+      "mensagem": "Usuario ou senha invalidos."
+    }
+  },
+  "403_acesso_negado": {
+    "erro": {
+      "codigo": "ACESSO_NEGADO",
+      "mensagem": "Painel analitico exclusivo para professores."
+    }
+  },
+  "404_questao_nao_encontrada": {
+    "erro": {
+      "codigo": "QUESTAO_NAO_ENCONTRADA",
+      "mensagem": "Questao 'nao-existe' nao encontrada."
+    }
+  },
+  "503_servico_indisponivel": {
+    "erro": {
+      "codigo": "SERVICO_INDISPONIVEL",
+      "mensagem": "Servico Elasticsearch indisponivel no momento. Tente novamente."
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "total": 1,
+  "pagina": 1,
+  "tamanho": 10,
+  "total_paginas": 1,
+  "questoes": [
+    {
+      "id": "si-2021-ce-009",
+      "ano": 2021,
+      "area": "Computação",
+      "curso": "Sistemas de Informação",
+      "tipo_prova": "Componente Específico",
+      "tipo_questao": "objetiva",
+      "numero": 9,
+      "texto_base": null,
+      "enunciado": "Analise os algoritmos de ordenação a seguir.",
+      "alternativas": [
+        {
+          "letra": "A",
+          "texto": "Quicksort é estável."
+        },
+        {
+          "letra": "B",
+          "texto": "Mergesort é O(n log n)."
+        }
+      ],
+      "gabarito": "B",
+      "anulada": false,
+      "competencias": [
+        "Raciocínio lógico",
+        "Algoritmos"
+      ],
+      "objetos_conhecimento": [
+        "Ordenação"
+      ],
+      "destaques": {
+        "enunciado": [
+          "Analise os <mark>algoritmos</mark> de ordenação a seguir."
+        ]
+      }
+    }
+  ]
+}
